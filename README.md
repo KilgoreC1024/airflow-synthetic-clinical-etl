@@ -1,6 +1,6 @@
 # Synthetic Clinical Data ETL with Apache Airflow
 
-[![Python ETL checks](https://github.com/KilgoreC1024/airflow-synthetic-clinical-etl/actions/workflows/tests.yml/badge.svg)](https://github.com/KilgoreC1024/airflow-synthetic-clinical-etl/actions/workflows/tests.yml)
+[![ETL and Airflow checks](https://github.com/KilgoreC1024/airflow-synthetic-clinical-etl/actions/workflows/tests.yml/badge.svg)](https://github.com/KilgoreC1024/airflow-synthetic-clinical-etl/actions/workflows/tests.yml)
 
 > **Portfolio project.** An original, intentionally small Apache Airflow data engineering demonstration using **100% fictional healthcare records**. No employer code, patient information, protected health information (PHI), or credentials are included.
 
@@ -10,7 +10,7 @@
 - **Healthcare modeling:** transform simplified, FHIR-shaped `Patient`, `Encounter`, and `Condition` resources into a relational SQL schema.
 - **Pre-load quality gates:** validate required fields, timestamps, uniqueness, patient references, and patient/encounter consistency.
 - **Reliability:** atomic SQLite full refresh, foreign-key constraints, repeatable runs, and a post-load audit.
-- **Testability:** business logic is independent of Airflow, with offline unit tests and GitHub Actions CI.
+- **Testability:** business logic is independent of Airflow, with offline unit tests on Linux and Windows, plus a GitHub Actions job that builds the Docker image and executes the full DAG with Apache Airflow on every push.
 
 This **does not** claim to be a production FHIR integration or enterprise data warehouse. FHIR-shaped means representative of the structure of selected FHIR R4 resources, **not full FHIR specification conformance**. All records are deterministic and synthetic.
 
@@ -66,6 +66,15 @@ Expected ETL output:
 
 Run it again. Counts remain the same: this is an **idempotent full refresh**.
 
+The unit tests report `Ran 12 tests ... OK (skipped=3)`: the three skipped tests in `tests/test_airflow_dag.py` need Apache Airflow and run in CI (see below).
+
+## Continuous integration
+
+Every push runs [`.github/workflows/tests.yml`](.github/workflows/tests.yml):
+
+- **Python ETL (Ubuntu and Windows):** compile, unit tests, and a full CLI run.
+- **Airflow DAG run (Docker image):** builds this repository's `Dockerfile`, initializes the Airflow metadata database, and executes `synthetic_clinical_etl` end to end with `dag.test()`, asserting that all five tasks succeed, then prints the audited output tables.
+
 ## Run the actual Airflow DAG (Docker)
 
 Requirements: Docker Engine/Desktop with Docker Compose and sufficient memory for a local Airflow instance (4 GB or more recommended). This is a **local development demo**, not a multi-service production stack.
@@ -120,6 +129,7 @@ The demo enforces selected relationships and required fields, but does **not** p
 ├── src/clinical_etl/                 # Framework-independent ETL and CLI
 ├── data/synthetic_fhir_bundle.json   # Fictional patient/encounter/condition data
 ├── tests/test_pipeline.py            # Offline quality and idempotency tests
+├── tests/test_airflow_dag.py         # End-to-end DAG run (needs Airflow; runs in CI)
 ├── docs/INTERVIEW_NOTES.md           # Architecture and trade-off talking points
 ├── .github/workflows/tests.yml       # CI tests on push / pull request
 ├── Dockerfile                        # Official Apache Airflow base image

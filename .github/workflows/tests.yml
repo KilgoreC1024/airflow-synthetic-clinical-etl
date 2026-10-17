@@ -1,10 +1,15 @@
-name: Python ETL checks
+name: ETL and Airflow checks
 on:
   push:
   pull_request:
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    name: Python ETL (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -19,4 +24,18 @@ jobs:
       - name: Execute synthetic ETL
         env:
           PYTHONPATH: src
-        run: python -m clinical_etl.cli --db /tmp/clinical_etl_ci.sqlite
+        run: python -m clinical_etl.cli --db "${{ runner.temp }}/clinical_etl_ci.sqlite"
+
+  airflow-dag:
+    name: Airflow DAG run (Docker image)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Airflow image
+        run: docker build -t clinical-etl-airflow .
+      - name: Execute the DAG with Apache Airflow and inspect the output
+        run: >
+          docker run --rm -v "$PWD/tests:/opt/airflow/demo/tests:ro" clinical-etl-airflow
+          bash -c "airflow db migrate > /dev/null
+          && python -m unittest discover -s /opt/airflow/demo/tests -v
+          && python -m clinical_etl.inspect --db /opt/airflow/demo/runtime/clinical_demo.sqlite"
