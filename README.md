@@ -32,6 +32,10 @@ Airflow DAG (`dags/synthetic_clinical_etl.py`):
 
 `extract → transform → quality_gate → load → audit`
 
+![Successful Airflow DAG execution](docs/airflow-success.png)
+
+*A manually triggered run in the local Airflow 2.10.5 UI (Docker): all five tasks succeeded.*
+
 **Model:** `patients (1) → (many) encounters (1) → (many) conditions`; condition also references the patient to allow a consistency check. Source is `data/synthetic_fhir_bundle.json`; local output is `runtime/clinical_demo.sqlite`, which is ignored by Git.
 
 ## Quickest tryout — no Airflow installation
@@ -131,6 +135,7 @@ The demo enforces selected relationships and required fields, but does **not** p
 ├── tests/test_pipeline.py            # Offline quality and idempotency tests
 ├── tests/test_airflow_dag.py         # End-to-end DAG run (needs Airflow; runs in CI)
 ├── docs/INTERVIEW_NOTES.md           # Architecture and trade-off talking points
+├── docs/airflow-success.png          # Screenshot of a successful local DAG run
 ├── .github/workflows/tests.yml       # CI tests on push / pull request
 ├── Dockerfile                        # Official Apache Airflow base image
 └── compose.yaml                      # One-command local Airflow UI
