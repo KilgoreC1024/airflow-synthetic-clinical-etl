@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -198,7 +199,8 @@ def load_sqlite(tables: dict[str, list[dict[str, str]]], db_path: str | Path) ->
     counts = validate_tables(tables)
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(db_path) as con:
+    # closing() releases the file handle; sqlite3's own context manager only commits.
+    with closing(sqlite3.connect(db_path)) as con:
         con.execute("PRAGMA foreign_keys = ON")
         # executescript commits any pending transaction; create schema first.
         con.executescript(_SCHEMA)
@@ -231,7 +233,7 @@ def load_sqlite(tables: dict[str, list[dict[str, str]]], db_path: str | Path) ->
 def audit_database(db_path: str | Path, expected: dict[str, int]) -> dict[str, Any]:
     """Check post-load counts, FK relationships, and patient/encounter consistency."""
     path = Path(db_path)
-    with sqlite3.connect(path) as con:
+    with closing(sqlite3.connect(path)) as con:
         con.execute("PRAGMA foreign_keys = ON")
         counts = {
             name: con.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 
@@ -13,7 +14,7 @@ def main() -> None:
     args = parser.parse_args()
     if not args.db.is_file():
         parser.exit(status=1, message="Database missing. Run the ETL first.\n")
-    with sqlite3.connect(args.db) as con:
+    with closing(sqlite3.connect(args.db)) as con:
         rows = con.execute("""
             SELECT c.code, c.description, COUNT(*) AS diagnosis_count,
                    COUNT(DISTINCT c.patient_id) AS distinct_patients
@@ -23,10 +24,10 @@ def main() -> None:
             GROUP BY c.code, c.description
             ORDER BY diagnosis_count DESC, c.code
         """).fetchall()
-    print("Code   | Description                | Conditions | Patients")
-    print("-" * 60)
+    print(f"{'Code':<8} | {'Description':<38} | Conditions | Patients")
+    print("-" * 72)
     for code, label, conditions, patients in rows:
-        print(f"{code:<6} | {label:<26} | {conditions:^10} | {patients:^8}")
+        print(f"{code:<8} | {label:<38} | {conditions:^10} | {patients:^8}")
 
 
 if __name__ == "__main__":

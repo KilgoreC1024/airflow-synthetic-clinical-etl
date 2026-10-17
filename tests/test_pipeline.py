@@ -6,6 +6,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from clinical_etl.pipeline import (
@@ -42,7 +43,7 @@ class ClinicalPipelineTests(unittest.TestCase):
         first = run_pipeline(FIXTURE, self.db)
         second = run_pipeline(FIXTURE, self.db)
         self.assertEqual(first, second)
-        with sqlite3.connect(self.db) as con:
+        with closing(sqlite3.connect(self.db)) as con:
             self.assertEqual(con.execute("SELECT COUNT(*) FROM conditions").fetchone()[0], 7)
 
     def test_reject_missing_patient_reference_before_load(self):
@@ -80,7 +81,7 @@ class ClinicalPipelineTests(unittest.TestCase):
     def test_sqlite_rollback_preserves_prior_refresh(self):
         expected = load_sqlite(self.tables, self.db)
         # Simulate an unexpected storage error after the refresh transaction starts.
-        with sqlite3.connect(self.db) as con:
+        with closing(sqlite3.connect(self.db)) as con:
             con.executescript("""
                 CREATE TRIGGER simulate_failure BEFORE INSERT ON conditions
                 WHEN NEW.id = 'con-002'
