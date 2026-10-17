@@ -1,0 +1,13 @@
+# One-container, local-only evaluation environment. Never expose on the public internet.
+services:
+  airflow:
+    build: .
+    command: standalone
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - airflow_state:/opt/airflow/state
+      - clinical_runtime:/opt/airflow/demo/runtime
+volumes:
+  airflow_state:
+  clinical_runtime:

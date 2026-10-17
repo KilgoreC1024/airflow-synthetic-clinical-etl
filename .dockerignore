@@ -1,0 +1,9 @@
+.git
+.github
+runtime
+__pycache__
+*.pyc
+*.sqlite
+*.db
+*.zip
+.venv

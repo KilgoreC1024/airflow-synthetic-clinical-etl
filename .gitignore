@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+.airflow/
+logs/
+runtime/*
+!runtime/.gitkeep
+.env
+*.sqlite
+*.db
+.DS_Store

@@ -1,0 +1,263 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-001",
+        "birthDate": "1984-03-12",
+        "gender": "female"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-002",
+        "birthDate": "1976-11-20",
+        "gender": "male"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-003",
+        "birthDate": "1991-07-08",
+        "gender": "female"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-004",
+        "birthDate": "1968-01-27",
+        "gender": "other"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-001",
+        "status": "finished",
+        "subject": {
+          "reference": "Patient/pat-001"
+        },
+        "period": {
+          "start": "2026-01-15T09:00:00Z"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-002",
+        "status": "finished",
+        "subject": {
+          "reference": "Patient/pat-001"
+        },
+        "period": {
+          "start": "2026-02-05T15:00:00Z"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-003",
+        "status": "finished",
+        "subject": {
+          "reference": "Patient/pat-002"
+        },
+        "period": {
+          "start": "2026-01-19T10:15:00Z"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-004",
+        "status": "finished",
+        "subject": {
+          "reference": "Patient/pat-003"
+        },
+        "period": {
+          "start": "2026-03-11T12:45:00Z"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-005",
+        "status": "finished",
+        "subject": {
+          "reference": "Patient/pat-004"
+        },
+        "period": {
+          "start": "2026-02-28T08:30:00Z"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-006",
+        "status": "finished",
+        "subject": {
+          "reference": "Patient/pat-002"
+        },
+        "period": {
+          "start": "2026-04-02T13:20:00Z"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "con-001",
+        "subject": {
+          "reference": "Patient/pat-001"
+        },
+        "encounter": {
+          "reference": "Encounter/enc-001"
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "I10",
+              "display": "Essential hypertension"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "con-002",
+        "subject": {
+          "reference": "Patient/pat-001"
+        },
+        "encounter": {
+          "reference": "Encounter/enc-001"
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "E78.5",
+              "display": "Hyperlipidemia, unspecified"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "con-003",
+        "subject": {
+          "reference": "Patient/pat-001"
+        },
+        "encounter": {
+          "reference": "Encounter/enc-002"
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "J45.909",
+              "display": "Unspecified asthma, uncomplicated"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "con-004",
+        "subject": {
+          "reference": "Patient/pat-002"
+        },
+        "encounter": {
+          "reference": "Encounter/enc-003"
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "E11.9",
+              "display": "Type 2 diabetes without complications"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "con-005",
+        "subject": {
+          "reference": "Patient/pat-003"
+        },
+        "encounter": {
+          "reference": "Encounter/enc-004"
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "K21.9",
+              "display": "Gastro-esophageal reflux disease"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "con-006",
+        "subject": {
+          "reference": "Patient/pat-004"
+        },
+        "encounter": {
+          "reference": "Encounter/enc-005"
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "M54.50",
+              "display": "Low back pain, unspecified"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "con-007",
+        "subject": {
+          "reference": "Patient/pat-002"
+        },
+        "encounter": {
+          "reference": "Encounter/enc-006"
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "I10",
+              "display": "Essential hypertension"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

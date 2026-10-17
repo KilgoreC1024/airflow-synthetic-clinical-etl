@@ -1,0 +1,22 @@
+name: Python ETL checks
+on:
+  push:
+  pull_request:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile sources
+        run: python -m compileall -q src dags
+      - name: Run unit tests (no Airflow needed)
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v
+      - name: Execute synthetic ETL
+        env:
+          PYTHONPATH: src
+        run: python -m clinical_etl.cli --db /tmp/clinical_etl_ci.sqlite
