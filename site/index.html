@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clinical Data ETL with Apache Airflow</title>
+<meta name="description" content="Run a five-task Apache Airflow ETL for synthetic FHIR-shaped clinical data in your browser, break it on purpose, and see the latest real Airflow run recorded in CI.">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #6f6d68;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.10);
+    --wash: rgba(11, 11, 11, 0.04);
+    --s1: #2a78d6;
+    --good: #0ca30c;
+    --warning: #fab219;
+    --critical: #d03b3b;
+    --callout: #fdf6e3;
+    --callout-border: rgba(250, 178, 25, 0.55);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #f0efec;
+      --ink-2: #c3c2b7;
+      --muted: #9a9890;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255, 255, 255, 0.10);
+      --wash: rgba(255, 255, 255, 0.05);
+      --s1: #3987e5;
+      --callout: #2a2414;
+      --callout-border: rgba(250, 178, 25, 0.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #9a9890;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --wash: rgba(255, 255, 255, 0.05);
+    --s1: #3987e5;
+    --callout: #2a2414;
+    --callout-border: rgba(250, 178, 25, 0.45);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  a { color: var(--s1); text-underline-offset: 2px; }
+  code, pre { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  code { font-size: 12.5px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+  header.top { padding: 40px 0 8px; }
+  .eyebrow { font-size: 13px; color: var(--ink-2); letter-spacing: 0.02em; margin: 0 0 6px; }
+  h1 { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; margin: 0 0 10px; font-weight: 650; letter-spacing: -0.01em; max-width: 900px; }
+  .lede { font-size: 17px; color: var(--ink-2); max-width: 800px; margin: 0 0 14px; }
+  .provenance { font-size: 13px; color: var(--muted); margin: 0; }
+  .callout {
+    background: var(--callout); border: 1px solid var(--callout-border); border-radius: 12px;
+    padding: 12px 16px; font-size: 14px; color: var(--ink); max-width: 860px; margin: 16px 0 0;
+  }
+  h2 { font-size: 19px; margin: 0 0 4px; font-weight: 650; }
+  h3 { font-size: 15px; margin: 22px 0 8px; font-weight: 600; }
+  .sub { color: var(--ink-2); margin: 0 0 14px; font-size: 14px; max-width: 800px; }
+  section { margin: 22px 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .card .tile { background: var(--page); }
+  .tile .label { font-size: 13px; color: var(--ink-2); margin: 0 0 4px; }
+  .tile .value { font-size: 30px; font-weight: 650; line-height: 1.1; margin: 0 0 6px; font-variant-numeric: tabular-nums; }
+  .tile .value.small { font-size: 22px; }
+  .tile .note { font-size: 13px; color: var(--muted); margin: 0; }
+  .note { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+  summary:focus-visible, button:focus-visible, [tabindex]:focus-visible, input:focus-visible + .scenario-text {
+    outline: 2px solid var(--s1); outline-offset: 2px;
+  }
+  .table-wrap { overflow-x: auto; max-height: 380px; overflow-y: auto; margin-top: 8px; border: 1px solid var(--border); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: var(--surface); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.wrap-text { white-space: normal; min-width: 220px; }
+
+  /* Status: always icon + label, never color alone. */
+  .status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; margin: 0; white-space: nowrap; }
+  .status .icon { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; color: #fff; font-size: 11px; line-height: 1; flex: none; }
+  .status.good .icon { background: var(--good); }
+  .status.warn .icon { background: var(--warning); color: #0b0b0b; }
+  .status.bad .icon { background: var(--critical); }
+  .status.idle .icon { background: var(--axis); color: var(--ink); }
+  .status.running .icon { background: var(--s1); }
+
+  /* Scenario picker */
+  fieldset.scenarios { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+  fieldset.scenarios legend { font-size: 13px; color: var(--ink-2); margin: 0 0 8px; padding: 0; }
+  .scenario { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; background: var(--page); }
+  .scenario:has(input:checked) { border-color: var(--s1); box-shadow: inset 0 0 0 1px var(--s1); }
+  .scenario input { margin: 3px 0 0; accent-color: var(--s1); flex: none; }
+  .scenario-text strong { display: block; font-size: 14px; font-weight: 600; }
+  .scenario-text span { display: block; font-size: 13px; color: var(--ink-2); }
+  .scenario.fault .scenario-text strong::after { content: "fault"; margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; vertical-align: 1px; }
+  textarea {
+    width: 100%; min-height: 260px; margin-top: 10px; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--page); color: var(--ink); font: 12.5px/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace; resize: vertical;
+  }
+  .actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 16px 0 0; }
+  button {
+    font: inherit; font-weight: 600; border-radius: 8px; padding: 8px 18px; cursor: pointer;
+    background: var(--ink); color: var(--page); border: 1px solid var(--ink);
+  }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.ghost { background: transparent; color: var(--ink-2); border-color: var(--border); padding: 4px 10px; font-weight: 500; font-size: 13px; }
+  button.ghost[aria-selected="true"] { color: var(--ink); border-color: var(--ink-2); background: var(--wash); }
+  #py-status { margin: 0; }
+
+  /* DAG */
+  ol.dag { list-style: none; padding: 0; margin: 18px 0 0; display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+  ol.dag li { display: flex; align-items: center; gap: 8px; }
+  ol.dag li + li::before { content: "\2192"; color: var(--muted); }
+  .task { border: 1px solid var(--border); border-left-width: 4px; border-radius: 8px; padding: 8px 12px; min-width: 150px; background: var(--page); }
+  .task .name { font: 600 13px ui-monospace, "Cascadia Mono", Consolas, monospace; margin: 0 0 4px; }
+  .task .status { font-size: 12.5px; font-weight: 500; }
+  .task .ms { font-size: 12px; color: var(--muted); margin: 2px 0 0; font-variant-numeric: tabular-nums; }
+  .task.good { border-left-color: var(--good); }
+  .task.bad { border-left-color: var(--critical); }
+  .task.warn { border-left-color: var(--warning); }
+  .task.running { border-left-color: var(--s1); }
+
+  .result { margin: 16px 0 0; border-radius: 10px; padding: 12px 14px; border: 1px solid var(--border); background: var(--page); font-size: 14px; }
+  .result p { margin: 0; }
+  .result p + p { margin-top: 6px; color: var(--ink-2); }
+  .result .status { margin-bottom: 6px; }
+  pre.log { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--wash); border: 1px solid var(--border); font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow-y: auto; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; }
+
+  /* CI chart */
+  .chart { width: 100%; position: relative; margin-top: 16px; }
+  .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis text { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .gridline { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+  .baseline { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+  .row-label { fill: var(--ink-2); font: 12.5px ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  .value-label { fill: var(--ink); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar { fill: var(--good); }
+  .bar-hit { fill: transparent; cursor: default; }
+  .bar-hit:hover + .bar, .bar.hover { opacity: 0.8; }
+  figure { margin: 20px 0 0; }
+  figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; }
+  figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+  ul.caveats { margin: 0; padding-left: 18px; color: var(--ink-2); }
+  ul.caveats li { margin: 6px 0; }
+  pre.code { margin: 8px 0 0; padding: 12px; border-radius: 8px; background: var(--wash); border: 1px solid var(--border); font-size: 12px; overflow-x: auto; }
+
+  #tooltip {
+    position: fixed; pointer-events: none; z-index: 10; opacity: 0; transition: opacity 80ms;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12); padding: 8px 10px; font-size: 13px; min-width: 170px; max-width: 300px;
+  }
+  #tooltip .tt-title { font-weight: 600; margin-bottom: 4px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  #tooltip .tt-row { display: flex; gap: 12px; justify-content: space-between; color: var(--ink-2); }
+  #tooltip .tt-row strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+  footer { color: var(--muted); font-size: 13px; padding: 24px 0 48px; }
+  @media (max-width: 560px) {
+    .card { padding: 14px; }
+    .tile .value { font-size: 26px; }
+    ol.dag li { width: 100%; }
+    ol.dag li::before { content: ""; width: 18px; flex: none; text-align: center; color: var(--muted); }
+    ol.dag li + li::before { content: "\2193"; }
+    .task { flex: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">Clinical Data ETL with Apache Airflow</p>
+    <h1>Break the pipeline on purpose and see which task stops the bad data</h1>
+    <p class="lede">A five-task Airflow DAG loads synthetic FHIR-shaped patient, encounter, and condition records into SQLite. Below, the repository's own pipeline code runs in your browser: pick a fault, run the DAG, and check whether the last good database survives. Further down is the latest run of the real DAG under Apache Airflow, recorded in CI.</p>
+    <p class="provenance" id="provenance">&nbsp;</p>
+    <p class="callout"><strong>Synthetic data, proof of concept.</strong> Four fictional patients whose conditions use real ICD-10 code values. No PHI, and not a production clinical system.</p>
+  </header>
+
+  <section class="tiles" id="tiles" aria-label="Key figures"></section>
+
+  <section class="card" aria-labelledby="run-title">
+    <h2 id="run-title">Run the DAG in your browser</h2>
+    <p class="sub">Each task calls the same function, in the same order, as <code>dags/synthetic_clinical_etl.py</code>. The code runs unmodified in <a href="https://pyodide.org/">Pyodide</a> (Python compiled to WebAssembly) against a SQLite database in your browser's memory. Each fault mirrors a test in <code>tests/test_pipeline.py</code>.</p>
+    <fieldset class="scenarios" id="scenarios"><legend>Choose what arrives in the source bundle</legend></fieldset>
+    <div id="custom-editor" hidden>
+      <label for="custom-json" class="note" style="display:block">The source bundle as committed. Edit any field, then run it; invalid JSON fails the extract task.</label>
+      <textarea id="custom-json" spellcheck="false"></textarea>
+    </div>
+    <div class="actions">
+      <button id="run-btn" type="button" disabled>Run DAG</button>
+      <p class="note" id="py-status" role="status">Loading Python in your browser (about 10 MB, first visit only)&hellip;</p>
+    </div>
+    <ol class="dag" id="dag" aria-label="DAG tasks and their state"></ol>
+    <div class="result" id="result" aria-live="polite" hidden></div>
+    <details id="log-details"><summary>Task logs</summary><pre class="log" id="logs"></pre></details>
+
+    <h3>Database after this run</h3>
+    <div class="tiles" id="db-tiles"></div>
+    <details><summary>View the tables</summary>
+      <div class="tabs" role="tablist" id="table-tabs"></div>
+      <div class="table-wrap" id="table-view"></div>
+    </details>
+
+    <h3>Run history</h3>
+    <div class="table-wrap" id="history"></div>
+  </section>
+
+  <section class="card" aria-labelledby="ci-title">
+    <h2 id="ci-title">The real DAG under Apache Airflow</h2>
+    <p class="sub">On every push to <code>main</code>, GitHub Actions builds the project's Docker image and runs the DAG with Airflow's <code>dag.test()</code>. The site is published only if every task succeeds. This is that run.</p>
+    <div class="tiles" id="ci-tiles"></div>
+    <div class="chart" id="ci-chart" role="img" aria-label="When each task finished in the recorded Airflow run"></div>
+    <p class="note">Each bar runs from when the previous task finished (for <code>extract</code>, from the start of the run) to when this one finished. <code>dag.test()</code> doesn't record task start times, so each bar includes Airflow's setup for that task.</p>
+    <details><summary>View the run as a table</summary><div class="table-wrap" id="ci-table"></div></details>
+    <figure>
+      <img src="img/airflow-success.png" alt="Airflow web UI graph view of synthetic_clinical_etl with extract, transform, quality_gate, load, and audit all marked success" loading="lazy" width="1875" height="855">
+      <figcaption>The same DAG in the Airflow web UI during a local Docker run: all five tasks succeeded.</figcaption>
+    </figure>
+  </section>
+
+  <section class="card" aria-labelledby="read-title">
+    <h2 id="read-title">How to read this</h2>
+    <ul class="caveats">
+      <li><strong>Same code, no scheduler.</strong> The browser runs the pipeline's functions as the DAG's five tasks. It has no Airflow scheduler, so no retries, XCom, or metadata database. The section above is the real Airflow run.</li>
+      <li><strong>Failure states follow Airflow.</strong> When a task fails, the tasks after it are marked <code>upstream_failed</code> and never run.</li>
+      <li><strong>Bad data never reaches the load.</strong> Structural problems fail <code>transform</code>; broken relationships and duplicates fail <code>quality_gate</code>. A storage error during <code>load</code> rolls back the whole transaction.</li>
+      <li><strong>Resets on reload.</strong> The browser database lives in memory. Reloading the page starts over with a fresh refresh.</li>
+    </ul>
+    <details><summary>View the DAG code</summary><pre class="code" id="dag-code">Loading&hellip;</pre></details>
+    <p class="note" id="links"></p>
+  </section>
+
+  <footer id="footer"></footer>
+</div>
+
+<div id="tooltip" role="status" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script>
+"use strict";
+const REPO = "https://github.com/KilgoreC1024/airflow-synthetic-clinical-etl";
+const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
+const TASKS = ["extract", "transform", "quality_gate", "load", "audit"];
+const SCENARIOS = [
+  { id: "clean", name: "Clean run", detail: "The bundle as committed: 4 patients, 6 encounters, 7 conditions.", test: "test_successful_pipeline_and_postload_audit" },
+  { id: "missing_patient", name: "Orphaned encounter", detail: "Encounter enc-001 points to a patient who doesn't exist.", test: "test_reject_missing_patient_reference_before_load", fault: true },
+  { id: "cross_patient", name: "Cross-patient condition", detail: "Condition con-001 names pat-004, but its encounter belongs to pat-001.", test: "test_reject_cross_patient_condition", fault: true },
+  { id: "duplicate_id", name: "Duplicate patient", detail: "The first Patient resource arrives twice.", test: "test_reject_duplicate_resource_ids", fault: true },
+  { id: "bad_timestamp", name: "Unparseable timestamp", detail: "Encounter enc-001 starts at \"yesterday\".", test: "test_reject_non_iso_datetime", fault: true },
+  { id: "unknown_type", name: "Unexpected resource type", detail: "A Medication resource arrives that the pipeline doesn't model.", test: "test_reject_unknown_resource_type", fault: true },
+  { id: "storage_failure", name: "Storage failure mid-load", detail: "The database rejects condition con-002 halfway through the refresh.", test: "test_sqlite_rollback_preserves_prior_refresh", fault: true },
+  { id: "custom", name: "Edit the data yourself", detail: "Change any field in the bundle, then run it." },
+];
+const STATE = {
+  success: { cls: "good", icon: "✓", label: "success" },
+  failed: { cls: "bad", icon: "✕", label: "failed" },
+  upstream_failed: { cls: "warn", icon: "!", label: "upstream failed" },
+  running: { cls: "running", icon: "▸", label: "running" },
+  none: { cls: "idle", icon: "·", label: "not run yet" },
+};
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...children) => {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v; else if (k === "text") node.textContent = v; else node.setAttribute(k, v);
+  }
+  for (const child of children) node.append(child);
+  return node;
+};
+const statusEl = (state, text) => {
+  const s = STATE[state] || STATE.none;
+  return el("span", { class: `status ${s.cls}` }, el("span", { class: "icon", "aria-hidden": "true", text: s.icon }), text ?? s.label);
+};
+const fmtCount = (counts) => `${counts.patients} patients, ${counts.encounters} encounters, ${counts.conditions} conditions`;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const fmtDate = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }) + " UTC";
+
+let runPipeline = null;
+let lastGoodRun = null;
+let activeTable = "patients";
+let lastDb = null;
+const history = [];
+
+function tile(label, value, note, opts = {}) {
+  const v = el("p", { class: "value" + (opts.small ? " small" : "") });
+  v.append(value);
+  return el("div", { class: "tile" }, el("p", { class: "label", text: label }), v, el("p", { class: "note", text: note }));
+}
+
+function renderScenarios() {
+  const fs = $("scenarios");
+  SCENARIOS.forEach((s, i) => {
+    const input = el("input", { type: "radio", name: "scenario", value: s.id });
+    if (i === 0) input.checked = true;
+    input.addEventListener("change", () => { $("custom-editor").hidden = s.id !== "custom"; });
+    fs.append(el("label", { class: "scenario" + (s.fault ? " fault" : "") }, input,
+      el("span", { class: "scenario-text" }, el("strong", { text: s.name }), el("span", { text: s.detail }))));
+  });
+}
+
+function renderDag(tasks) {
+  const ol = $("dag");
+  ol.replaceChildren();
+  TASKS.forEach((id) => {
+    const t = tasks?.find((x) => x.task_id === id);
+    const state = t?.state || "none";
+    const ms = t?.ms != null ? `${t.ms.toFixed(1)} ms in your browser` : state === "upstream_failed" ? "skipped" : " ";
+    ol.append(el("li", {}, el("div", { class: `task ${(STATE[state] || STATE.none).cls}` },
+      el("p", { class: "name", text: id }), statusEl(state), el("p", { class: "ms", text: ms }))));
+  });
+}
+
+function renderLogs(result) {
+  const lines = [];
+  for (const t of result.tasks) {
+    if (t.state === "upstream_failed") { lines.push(`[${t.task_id}] upstream_failed: not run`); continue; }
+    lines.push(`[${t.task_id}] ${t.state} in ${t.ms.toFixed(1)} ms`);
+    for (const line of t.log) lines.push(`    ${line}`);
+  }
+  $("logs").textContent = lines.join("\n");
+}
+
+function renderResult(result, runNo) {
+  const box = $("result");
+  box.replaceChildren();
+  const scenario = SCENARIOS.find((s) => s.id === result.scenario);
+  if (result.state === "success") {
+    const audit = result.tasks[4].log.length ? fmtCount(result.db.counts) : "";
+    box.append(statusEl("success", "All five tasks succeeded"));
+    box.append(el("p", { text: `The post-load audit passed: ${audit}, no foreign-key violations, no cross-patient conditions.` }));
+    const dbText = runNo === 1 ? "Database loaded."
+      : result.changed ? "Database refreshed with the new data in one transaction."
+      : "Database refreshed in one transaction. Its contents are identical to before, so rerunning is safe.";
+    box.append(el("p", { text: dbText }));
+  } else {
+    box.append(statusEl("failed", `Stopped at ${result.failed_task}`));
+    box.append(el("p", { text: result.error }));
+    const kept = lastGoodRun ? `the refresh from run #${lastGoodRun}` : "its previous contents";
+    const dbText = result.failed_task === "load"
+      ? `The load transaction rolled back, so the database still holds ${kept}.`
+      : `Nothing was loaded. The database still holds ${kept}.`;
+    box.append(el("p", { text: dbText }));
+  }
+  if (scenario?.test) {
+    const p = el("p", {});
+    p.append("Covered by ", el("a", { href: `${REPO}/blob/main/tests/test_pipeline.py`, text: scenario.test }), ".");
+    box.append(p);
+  }
+  box.hidden = false;
+}
+
+function renderDb(db) {
+  lastDb = db;
+  const wrap = $("db-tiles");
+  wrap.replaceChildren();
+  if (!db.exists) { wrap.append(el("p", { class: "note", text: "Empty: no successful load yet." })); return; }
+  wrap.append(tile("Patients", String(db.counts.patients), "patients table"));
+  wrap.append(tile("Encounters", String(db.counts.encounters), "encounters table"));
+  wrap.append(tile("Conditions", String(db.counts.conditions), "conditions table"));
+  wrap.append(tile("Content fingerprint", db.fingerprint, lastGoodRun ? `From the refresh in run #${lastGoodRun}` : "", { small: true }));
+  renderTableTabs();
+}
+
+function renderTableTabs() {
+  const tabs = $("table-tabs");
+  tabs.replaceChildren();
+  for (const [key, label] of [["patients", "patients"], ["encounters", "encounters"], ["conditions", "conditions"], ["summary", "condition summary"]]) {
+    const b = el("button", { class: "ghost", type: "button", role: "tab", "aria-selected": String(key === activeTable), text: label });
+    b.addEventListener("click", () => { activeTable = key; renderTableTabs(); });
+    tabs.append(b);
+  }
+  if (!lastDb?.exists) return;
+  const t = activeTable === "summary"
+    ? { columns: ["code", "description", "conditions", "patients"], rows: lastDb.summary }
+    : lastDb.tables[activeTable];
+  $("table-view").replaceChildren(makeTable(t.columns, t.rows, activeTable === "summary" ? [2, 3] : []));
+}
+
+function makeTable(columns, rows, numCols = []) {
+  const thead = el("thead", {}, el("tr", {}, ...columns.map((c, i) => el("th", { class: numCols.includes(i) ? "num" : "", scope: "col", text: c }))));
+  const tbody = el("tbody", {}, ...rows.map((r) => el("tr", {}, ...r.map((v, i) => el("td", { class: numCols.includes(i) ? "num" : "", text: String(v) })))));
+  return el("table", {}, thead, tbody);
+}
+
+function renderHistory() {
+  const rows = history.slice().reverse();
+  const table = el("table", {},
+    el("thead", {}, el("tr", {}, ...["Run", "Scenario", "Result", "Database after"].map((h) => el("th", { scope: "col", text: h })))),
+    el("tbody", {}, ...rows.map((h) => el("tr", {},
+      el("td", { class: "num", text: `#${h.no}` }),
+      el("td", { text: h.name }),
+      el("td", {}, statusEl(h.state, h.state === "success" ? "success" : `failed at ${h.failed_task}`)),
+      el("td", { class: "wrap-text", text: h.dbText })))));
+  $("history").replaceChildren(table);
+}
+
+async function runScenario(id, label) {
+  const btn = $("run-btn");
+  btn.disabled = true;
+  const custom = id === "custom" ? $("custom-json").value : null;
+  let result;
+  try {
+    result = JSON.parse(runPipeline(id, custom));
+  } catch (err) {
+    $("py-status").textContent = `Couldn't run: ${String(err.message || err).split("\n").filter(Boolean).pop()}`;
+    btn.disabled = false;
+    return;
+  }
+  // Show the tasks in order; the timings shown are the measured ones.
+  for (let i = 0; i < TASKS.length; i++) {
+    renderDag(result.tasks.map((t, j) => (j < i ? t : j === i && t.state !== "upstream_failed" ? { task_id: t.task_id, state: "running" } : j > i ? { task_id: t.task_id } : t)));
+    await sleep(140);
+  }
+  renderDag(result.tasks);
+  const no = history.length + 1;
+  if (result.state === "success") lastGoodRun = no;
+  renderResult(result, no);
+  renderLogs(result);
+  renderDb(result.db);
+  const dbText = result.state === "success"
+    ? (no === 1 ? `Loaded: ${fmtCount(result.db.counts)}` : result.changed ? `Refreshed with new data: ${fmtCount(result.db.counts)}` : `Refreshed, identical contents (${result.db.fingerprint})`)
+    : `Unchanged (${result.db.exists ? result.db.fingerprint : "empty"})`;
+  history.push({ no, name: label || SCENARIOS.find((s) => s.id === id).name, state: result.state, failed_task: result.failed_task, dbText });
+  renderHistory();
+  $("py-status").textContent = "Ready. Pick a scenario and run it again.";
+  btn.disabled = false;
+}
+
+async function bootPython() {
+  const [init, pipeline, runner, bundle] = await Promise.all(
+    ["code/clinical_etl/__init__.py", "code/clinical_etl/pipeline.py", "code/demo_runner.py", "data/synthetic_fhir_bundle.json"]
+      .map((p) => fetch(p).then((r) => { if (!r.ok) throw new Error(`${p}: HTTP ${r.status}`); return r.text(); })));
+  $("custom-json").value = bundle;
+  const pyodide = await loadPyodide({ indexURL: PYODIDE_URL });
+  await pyodide.loadPackage("sqlite3");
+  pyodide.FS.mkdirTree("/demo/pkg/clinical_etl");
+  pyodide.FS.mkdirTree("/demo/data");
+  pyodide.FS.writeFile("/demo/pkg/clinical_etl/__init__.py", init);
+  pyodide.FS.writeFile("/demo/pkg/clinical_etl/pipeline.py", pipeline);
+  pyodide.FS.writeFile("/demo/pkg/demo_runner.py", runner);
+  pyodide.FS.writeFile("/demo/data/synthetic_fhir_bundle.json", bundle);
+  runPipeline = pyodide.runPython("import sys; sys.path.insert(0, '/demo/pkg'); import demo_runner; demo_runner.run");
+}
+
+function renderCi(run) {
+  const tiles = $("ci-tiles");
+  if (!run) {
+    tiles.append(el("p", { class: "note", text: "The recorded Airflow run isn't available in this build." }));
+    return;
+  }
+  const total = (new Date(run.end) - new Date(run.start)) / 1000;
+  tiles.append(tile("DAG run", statusEl(run.state === "success" ? "success" : "failed", run.state), `${run.tasks.length} of ${run.tasks.length} tasks ${run.state === "success" ? "succeeded" : ""}`.trim(), { small: true }));
+  tiles.append(tile("Apache Airflow", run.airflow_version, `Python ${run.python_version}, project Docker image`, { small: true }));
+  tiles.append(tile("Run time", `${total.toFixed(2)} s`, "DAG run start to finish", { small: true }));
+  tiles.append(tile("Post-load audit", run.audit?.status ?? "n/a", run.audit ? fmtCount(run.audit.row_counts) : "", { small: true }));
+  drawCiChart(run, total);
+  window.addEventListener("resize", () => drawCiChart(run, total));
+  const rows = run.tasks.map((t, i) => [t.task_id, t.state, `+${t.finished_after_s.toFixed(3)} s`,
+    `${(t.finished_after_s - (i ? run.tasks[i - 1].finished_after_s : 0)).toFixed(3)} s`, String(t.try_number)]);
+  $("ci-table").replaceChildren(makeTable(["task", "state", "finished at", "since previous task", "try"], rows, [2, 3, 4]));
+}
+
+function drawCiChart(run, total) {
+  const host = $("ci-chart");
+  const W = Math.max(280, host.clientWidth);
+  const left = 112, right = 64, top = 6, rowH = 30, axisH = 26;
+  const H = top + rowH * run.tasks.length + axisH;
+  const max = Math.max(total, ...run.tasks.map((t) => t.finished_after_s));
+  const nice = max <= 1 ? 0.25 : max <= 2.5 ? 0.5 : 1;
+  const domain = Math.ceil(max / nice) * nice;
+  const x = (s) => left + (s / domain) * (W - left - right);
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("width", W);
+  svg.setAttribute("height", H);
+  const add = (parent, tag, attrs, text) => {
+    const n = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (text != null) n.textContent = text;
+    parent.append(n);
+    return n;
+  };
+  const axis = add(svg, "g", { class: "axis" });
+  const step = W - left - right < 240 ? nice * 2 : nice;  // fewer ticks on narrow screens
+  for (let s = 0; s <= domain + 1e-9; s += step) {
+    add(svg, "line", { class: "gridline", x1: x(s), x2: x(s), y1: top, y2: H - axisH });
+    add(axis, "text", { x: x(s), y: H - 8, "text-anchor": "middle" }, `${+s.toFixed(2)} s`);
+  }
+  add(svg, "line", { class: "baseline", x1: left, x2: left, y1: top, y2: H - axisH });
+  const tip = $("tooltip");
+  run.tasks.forEach((t, i) => {
+    const prev = i ? run.tasks[i - 1].finished_after_s : 0;
+    const y = top + i * rowH;
+    add(svg, "text", { class: "row-label", x: left - 10, y: y + rowH / 2 + 4, "text-anchor": "end" }, t.task_id);
+    const x0 = x(prev), x1 = Math.max(x(t.finished_after_s), x0 + 2);
+    const hit = add(svg, "rect", { class: "bar-hit", x: left, y, width: W - left - right, height: rowH });
+    const bar = add(svg, "rect", { class: "bar", x: x0, y: y + 8, width: x1 - x0, height: rowH - 16, rx: 3 });
+    add(svg, "text", { class: "value-label", x: x1 + 6, y: y + rowH / 2 + 4 }, `+${t.finished_after_s.toFixed(2)} s`);
+    const show = (ev) => {
+      tip.replaceChildren(el("div", { class: "tt-title", text: t.task_id }),
+        el("div", { class: "tt-row" }, el("span", { text: "State" }), el("strong", { text: t.state })),
+        el("div", { class: "tt-row" }, el("span", { text: "Finished at" }), el("strong", { text: `+${t.finished_after_s.toFixed(3)} s` })),
+        el("div", { class: "tt-row" }, el("span", { text: "Since previous task" }), el("strong", { text: `${(t.finished_after_s - prev).toFixed(3)} s` })));
+      tip.style.opacity = 1;
+      tip.style.left = Math.min(ev.clientX + 14, window.innerWidth - 220) + "px";
+      tip.style.top = ev.clientY + 14 + "px";
+      bar.classList.add("hover");
+    };
+    hit.addEventListener("mousemove", show);
+    hit.addEventListener("mouseleave", () => { tip.style.opacity = 0; bar.classList.remove("hover"); });
+  });
+  host.replaceChildren(svg);
+}
+
+async function main() {
+  renderScenarios();
+  renderDag(null);
+  const run = await fetch("airflow_run.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const commit = run?.commit && run.commit !== "local" ? run.commit.slice(0, 7) : null;
+  $("provenance").textContent = run
+    ? `Pipeline code, data, and Airflow run from ${commit ? `commit ${commit}` : "a local build"}, recorded ${fmtDate(run.recorded_at)}.`
+    : "Pipeline code and data from this repository.";
+  $("tiles").append(
+    tile("DAG tasks", "5", "extract, transform, quality_gate, load, audit"),
+    tile("Fault scenarios", "6", "Each mirrors a unit test"),
+    tile("Rows per refresh", "17", "4 patients, 6 encounters, 7 conditions"),
+    tile("Latest Airflow run", run ? statusEl(run.state === "success" ? "success" : "failed", run.state) : "n/a",
+      run ? `Airflow ${run.airflow_version} in CI` : "Not recorded in this build", { small: true }));
+  renderCi(run);
+  $("links").replaceChildren("Source: ", el("a", { href: REPO, text: "repository" }), " · ",
+    el("a", { href: `${REPO}/blob/main/dags/synthetic_clinical_etl.py`, text: "DAG" }), " · ",
+    el("a", { href: `${REPO}/blob/main/src/clinical_etl/pipeline.py`, text: "pipeline" }), " · ",
+    el("a", { href: `${REPO}/blob/main/tests/test_pipeline.py`, text: "tests" }));
+  $("footer").textContent = "Christian Kilgore · Synthetic data only · Built by GitHub Actions from the repository on every push to main.";
+  fetch("code/dags/synthetic_clinical_etl.py").then((r) => r.text()).then((t) => { $("dag-code").textContent = t; }).catch(() => {});
+
+  $("run-btn").addEventListener("click", () => {
+    const id = document.querySelector('input[name="scenario"]:checked').value;
+    runScenario(id);
+  });
+  try {
+    await bootPython();
+    $("py-status").textContent = "Running the initial clean refresh…";
+    await runScenario("clean", "Initial refresh (clean run)");
+    $("py-status").textContent = "Ready. Pick a fault and run the DAG.";
+  } catch (err) {
+    console.error(err);
+    $("py-status").textContent = "Couldn't start Python in this browser. The recorded Airflow run below still shows the real DAG.";
+  }
+}
+main();
+</script>
+</body>
+</html>

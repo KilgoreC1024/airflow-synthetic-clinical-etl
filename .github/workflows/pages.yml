@@ -1,0 +1,46 @@
+name: Publish demo site
+
+# Runs the DAG with Apache Airflow in the project's Docker image, records that run, and publishes it with the
+# in-browser demo to GitHub Pages. A failed DAG run fails the job, and the last good site stays online.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the Airflow image
+        run: docker build -t clinical-etl-airflow .
+      - name: Run the DAG with Airflow and record the run
+        run: |
+          mkdir -p out && chmod 777 out
+          docker run --rm -e GITHUB_SHA \
+            -v "$PWD/scripts:/opt/airflow/demo/scripts:ro" -v "$PWD/out:/out" clinical-etl-airflow \
+            bash -c "airflow db migrate > /dev/null && python /opt/airflow/demo/scripts/record_dag_run.py /out/airflow_run.json"
+      - name: Assemble the site
+        run: bash scripts/build_site.sh _site out/airflow_run.json
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -2,6 +2,8 @@
 
 [![ETL and Airflow checks](https://github.com/KilgoreC1024/airflow-synthetic-clinical-etl/actions/workflows/tests.yml/badge.svg)](https://github.com/KilgoreC1024/airflow-synthetic-clinical-etl/actions/workflows/tests.yml)
 
+**[Live demo](https://kilgorec1024.github.io/airflow-synthetic-clinical-etl/)**: run the pipeline in your browser, break it on purpose with six fault scenarios, and see the latest real Airflow run recorded in CI.
+
 > **Portfolio project.** An original, intentionally small Apache Airflow data engineering demonstration using **100% fictional healthcare records**. No employer code, patient information, protected health information (PHI), or credentials are included.
 
 ## What this demonstrates
@@ -79,6 +81,11 @@ Every push runs [`.github/workflows/tests.yml`](.github/workflows/tests.yml):
 - **Python ETL (Ubuntu and Windows):** compile, unit tests, and a full CLI run.
 - **Airflow DAG run (Docker image):** builds this repository's `Dockerfile`, initializes the Airflow metadata database, and executes `synthetic_clinical_etl` end to end with `dag.test()`, asserting that all five tasks succeed, then prints the audited output tables.
 
+Every push to `main` also runs [`.github/workflows/pages.yml`](.github/workflows/pages.yml), which publishes the [live demo](https://kilgorec1024.github.io/airflow-synthetic-clinical-etl/):
+
+- It runs the DAG with Airflow in the Docker image and records the run with [`scripts/record_dag_run.py`](scripts/record_dag_run.py). A failed run fails the job, and the last good site stays online.
+- The page runs the unmodified `src/clinical_etl/pipeline.py` in the browser with [Pyodide](https://pyodide.org/), using [`site/demo_runner.py`](site/demo_runner.py) to call the same functions, in the same order, as the DAG's five tasks. Each fault scenario mirrors a test in `tests/test_pipeline.py`.
+
 ## Run the actual Airflow DAG (Docker)
 
 Requirements: Docker Engine/Desktop with Docker Compose and sufficient memory for a local Airflow instance (4 GB or more recommended). This is a **local development demo**, not a multi-service production stack.
@@ -136,7 +143,10 @@ The demo enforces selected relationships and required fields, but does **not** p
 ├── tests/test_airflow_dag.py         # End-to-end DAG run (needs Airflow; runs in CI)
 ├── docs/INTERVIEW_NOTES.md           # Architecture and trade-off talking points
 ├── docs/airflow-success.png          # Screenshot of a successful local DAG run
+├── site/                             # Live demo page and its in-browser task runner
+├── scripts/                          # Record an Airflow run; assemble the demo site
 ├── .github/workflows/tests.yml       # CI tests on push / pull request
+├── .github/workflows/pages.yml       # Airflow run + live demo, published to GitHub Pages
 ├── Dockerfile                        # Official Apache Airflow base image
 └── compose.yaml                      # One-command local Airflow UI
 ```

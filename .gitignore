@@ -11,3 +11,5 @@ runtime/*
 *.sqlite
 *.db
 .DS_Store
+_site/
+out/
